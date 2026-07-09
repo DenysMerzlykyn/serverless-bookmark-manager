@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./.venv/Scripts/ruff check *)",
+      "Bash(./.venv/Scripts/black --check *)",
+      "Bash(./.venv/Scripts/mypy *)"
+    ]
+  }
+}
