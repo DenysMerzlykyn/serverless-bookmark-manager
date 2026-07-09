@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import DateTime, MetaData, func
+from sqlalchemy.ext.asyncio import AsyncAttrs
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 # Explicit naming convention so Alembic autogenerate produces the same
@@ -17,7 +18,7 @@ NAMING_CONVENTION = {
 }
 
 
-class Base(DeclarativeBase):
+class Base(AsyncAttrs, DeclarativeBase):
     metadata = MetaData(naming_convention=NAMING_CONVENTION)
 
 
