@@ -56,6 +56,10 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+# Explicit default (function scope) to silence pytest-asyncio's deprecation
+# warning. Each test gets its own event loop; see tests/integration/conftest.py
+# for why the cached engine is deliberately *not* shared across tests.
+asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
 
 [tool.coverage.run]

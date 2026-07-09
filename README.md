@@ -38,7 +38,33 @@ k8s-demo/         kustomize manifests for the CI-only kind cluster demo
 
 ## Local development
 
-_To be filled in once the backend skeleton exists._
+### Backend
+
+Requires Python 3.12+ and a reachable Postgres (see below).
+
+```bash
+cd backend
+python -m venv .venv
+./.venv/Scripts/pip install -e ".[dev]"   # Linux/macOS: .venv/bin/pip
+cp .env.example .env                       # then edit JWT_SECRET_KEY at least
+
+alembic upgrade head                       # apply migrations
+uvicorn app.main:app --reload              # run locally at http://localhost:8000
+
+ruff check . && black --check . && mypy app tests
+pytest --cov                               # unit tests only need no DB;
+                                            # integration tests need Postgres reachable
+```
+
+**Local Postgres:** `docker-compose.yml` in `backend/` starts a disposable
+Postgres matching what CI uses. Run `docker compose up -d` wherever Docker is
+available to you (Docker Desktop, a VM, whatever) and make sure port `5432`
+is reachable from wherever you run the backend/tests — `DATABASE_URL` in
+`.env.example` assumes `localhost:5432`.
+
+### Frontend
+
+_To be filled in once the frontend skeleton exists._
 
 ## License
 
