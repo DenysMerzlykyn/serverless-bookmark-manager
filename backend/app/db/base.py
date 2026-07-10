@@ -20,6 +20,14 @@ NAMING_CONVENTION = {
 
 class Base(AsyncAttrs, DeclarativeBase):
     metadata = MetaData(naming_convention=NAMING_CONVENTION)
+    # Without this, a column with a server-computed value (created_at's
+    # server_default, updated_at's onupdate=func.now()) is left "expired"
+    # after flush/commit. A later *synchronous* attribute read (e.g.
+    # pydantic's model_validate) then tries to lazily re-fetch it outside
+    # any async context and raises MissingGreenlet. eager_defaults=True
+    # fetches those values via RETURNING as part of the flush itself, so
+    # they're already populated in memory by the time anything reads them.
+    __mapper_args__ = {"eager_defaults": True}
 
 
 class UUIDPrimaryKeyMixin:
