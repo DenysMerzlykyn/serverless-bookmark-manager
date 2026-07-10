@@ -77,10 +77,10 @@ async def test_me_returns_current_user_with_valid_token(client: AsyncClient) -> 
     assert response.json()["email"] == email
 
 
-async def test_me_without_credentials_returns_403(client: AsyncClient) -> None:
+async def test_me_without_credentials_returns_401(client: AsyncClient) -> None:
     response = await client.get("/auth/me")
 
-    assert response.status_code == 403
+    assert response.status_code == 401
 
 
 async def test_me_with_garbage_token_returns_401(client: AsyncClient) -> None:

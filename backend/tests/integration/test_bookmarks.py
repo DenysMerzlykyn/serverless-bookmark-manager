@@ -37,7 +37,7 @@ async def test_create_bookmark_returns_bookmark_with_tags(client: AsyncClient) -
 async def test_bookmarks_require_authentication(client: AsyncClient) -> None:
     response = await client.get("/bookmarks")
 
-    assert response.status_code == 403
+    assert response.status_code == 401
 
 
 async def test_list_bookmarks_returns_only_current_users_bookmarks(client: AsyncClient) -> None:
