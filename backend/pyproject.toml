@@ -4,27 +4,27 @@ version = "0.1.0"
 description = "FastAPI backend for the serverless bookmark manager portfolio project"
 requires-python = ">=3.12"
 dependencies = [
-    "fastapi>=0.115,<0.116",
-    "mangum>=0.19,<0.20",
+    "fastapi>=0.115,<0.140",
+    "mangum>=0.19,<0.22",
     "sqlalchemy[asyncio]>=2.0,<2.1",
-    "asyncpg>=0.30,<0.31",
-    "alembic>=1.14,<1.15",
+    "asyncpg>=0.30,<0.32",
+    "alembic>=1.14,<1.19",
     "pydantic[email]>=2.9,<3",
     "pydantic-settings>=2.6,<3",
-    "argon2-cffi>=23.1,<24",
+    "argon2-cffi>=23.1,<26",
     "pyjwt>=2.9,<3",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "uvicorn[standard]>=0.32,<0.33",
-    "pytest>=8.3,<9",
-    "pytest-asyncio>=0.24,<0.25",
-    "pytest-cov>=6.0,<7",
-    "httpx>=0.27,<0.28",
-    "ruff>=0.7,<0.8",
-    "black>=24.10,<25",
-    "mypy>=1.13,<2",
+    "uvicorn[standard]>=0.32,<0.52",
+    "pytest>=8.3,<10",
+    "pytest-asyncio>=0.24,<1.5",
+    "pytest-cov>=6.0,<8",
+    "httpx>=0.27,<0.29",
+    "ruff>=0.7,<0.16",
+    "black>=24.10,<27",
+    "mypy>=1.13,<3",
 ]
 
 [build-system]
