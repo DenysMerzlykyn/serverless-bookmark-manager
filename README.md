@@ -64,7 +64,18 @@ is reachable from wherever you run the backend/tests — `DATABASE_URL` in
 
 ### Frontend
 
-_To be filled in once the frontend skeleton exists._
+Requires Node 20+.
+
+```bash
+cd frontend
+npm install
+cp .env.example .env.local           # VITE_API_BASE_URL - defaults to the local backend
+
+npm run dev                          # http://localhost:5173, expects the backend running too
+npm run typecheck && npm run lint && npm run format:check
+npm test                             # Vitest
+npm run build                        # production build
+```
 
 ## License
 

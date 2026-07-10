@@ -198,6 +198,15 @@ document.
 - **Dependency hygiene:** Dependabot for both `pip` and `npm` ecosystems;
   `pip-audit` and `npm audit` run in CI on every PR; `tfsec` and `checkov`
   scan the Terraform on every PR.
+- **Frontend token storage:** the access token lives only in memory (a module
+  variable, never persisted); the refresh token is stored in `localStorage`.
+  The backend issues tokens as a plain JSON response rather than an httpOnly
+  cookie, so there's no storage option on the frontend that's fully invisible
+  to JS — `localStorage` is the pragmatic choice given that, not a solved
+  problem. What actually limits the blast radius of an XSS-stolen refresh
+  token is the backend's rotation + reuse detection (a stolen token gets
+  replayed at most once before the whole family is revoked), not where the
+  frontend keeps it.
 
 ---
 
