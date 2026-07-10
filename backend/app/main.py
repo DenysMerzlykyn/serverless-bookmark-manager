@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from mangum import Mangum
 
-from app.api.routes import auth, health
+from app.api.routes import auth, bookmarks, health
 from app.core.config import get_settings
 from app.core.logging import configure_logging
 
@@ -21,6 +21,7 @@ app.add_middleware(
 
 app.include_router(health.router)
 app.include_router(auth.router)
+app.include_router(bookmarks.router)
 
 # Entry point AWS Lambda invokes. Mangum translates the Lambda Function URL's
 # event/response shape to/from ASGI so `app` runs unmodified in both Lambda
