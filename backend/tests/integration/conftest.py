@@ -2,12 +2,15 @@ import asyncio
 from collections.abc import AsyncGenerator
 
 import pytest_asyncio
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from alembic import command
 from alembic.config import Config
+from app.api.deps import get_db
 from app.core.config import get_settings
 from app.db.session import get_engine, get_sessionmaker
+from app.main import app
 
 
 def _run_migrations_to_head() -> None:
@@ -66,3 +69,23 @@ async def db_session() -> AsyncGenerator[AsyncSession]:
         await transaction.rollback()
         await connection.close()
         await engine.dispose()
+
+
+@pytest_asyncio.fixture
+async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient]:
+    """An HTTP client driving the real FastAPI app, with get_db overridden to
+    hand out the same rollback-able db_session every request in the test
+    uses — so route handlers and test assertions see the same uncommitted
+    state. Uses httpx's ASGI transport (in-process, no real socket) on the
+    same event loop as db_session — a real socket-based TestClient would risk
+    the cross-loop asyncpg issue documented on db_session above.
+    """
+
+    async def _override_get_db() -> AsyncGenerator[AsyncSession]:
+        yield db_session
+
+    app.dependency_overrides[get_db] = _override_get_db
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        yield ac
+    app.dependency_overrides.clear()
