@@ -9,7 +9,7 @@ dependencies = [
     "sqlalchemy[asyncio]>=2.0,<2.1",
     "asyncpg>=0.30,<0.31",
     "alembic>=1.14,<1.15",
-    "pydantic>=2.9,<3",
+    "pydantic[email]>=2.9,<3",
     "pydantic-settings>=2.6,<3",
     "argon2-cffi>=23.1,<24",
     "pyjwt>=2.9,<3",
@@ -40,6 +40,12 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI's Depends()/Query()/etc. in argument defaults is the documented,
+# intentional idiom (FastAPI inspects the default at call time) - not the
+# "mutable default" footgun B008 exists to catch.
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "fastapi.Path", "fastapi.Body"]
 
 [tool.black]
 line-length = 100
