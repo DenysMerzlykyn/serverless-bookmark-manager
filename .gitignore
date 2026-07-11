@@ -22,11 +22,13 @@ build/
 
 # --- Terraform ---
 .terraform/
-.terraform.lock.hcl
+# .terraform.lock.hcl is deliberately NOT ignored - it pins exact provider
+# versions/hashes and is meant to be committed for reproducibility.
 *.tfstate
 *.tfstate.*
 *.tfvars
 !*.tfvars.example
+.placeholder-*.zip
 crash.log
 crash.*.log
 

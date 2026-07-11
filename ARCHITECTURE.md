@@ -41,7 +41,9 @@ out explicitly rather than hidden.
                          ┌────────────────────────┐
                          │  AWS Lambda             │
                          │  FastAPI + Mangum       │
-                         │  alias: dev / prod      │
+                         │  one function per env,  │
+                         │  "live" alias for       │
+                         │  rollback               │
                          └───────────┬─────────────┘
                                      │ TLS, pooled via asyncpg
                                      ▼
@@ -152,6 +154,10 @@ Lambda-specific branching in application code.
 | State backend | Terraform Cloud free tier | S3 + DynamoDB with versioning/replication | Functionally similar; TFC avoids the 12-month S3 free-tier cliff |
 | Domain | `*.pages.dev` / default Lambda URL | Custom domain + ACM cert + Route 53 | Route 53 hosted zones aren't free; a custom domain isn't required to demonstrate the underlying skills |
 | Alerting | Documented plan only (see below) | CloudWatch Alarms + SNS + on-call paging | Alarms are cheap but not literally free at meaningful thresholds; kept as a documented "what I'd add" section |
+| Networking | No VPC (public internet egress) | Lambda in a private VPC subnet | VPC egress needs a NAT Gateway (~$32/mo+); the function calls Neon over the public internet anyway, so VPC placement would add cost with no real isolation benefit here |
+| Log/env-var encryption | AWS-managed key (default) | Customer-managed KMS key | A CMK costs ~$1/mo per key; AWS's default already encrypts at rest, just without customer-controlled rotation |
+| Code integrity | GitHub Actions OIDC as the only deploy path | AWS Signer code-signing | OIDC already means only that one pipeline can update the function; signing profiles add setup complexity disproportionate to a single-maintainer project |
+| Log retention | 14 days | 1+ year | Bounds CloudWatch Logs storage cost; a portfolio project has no compliance reason to keep logs longer |
 
 ### On the missing WAF/edge protection specifically
 
@@ -196,8 +202,17 @@ document.
   the production-grade choice for rotation, but both have per-secret costs
   beyond a small free allotment — noted as a "what I'd add" item, not shipped.)
 - **Dependency hygiene:** Dependabot for both `pip` and `npm` ecosystems;
-  `pip-audit` and `npm audit` run in CI on every PR; `tfsec` and `checkov`
-  scan the Terraform on every PR.
+  `pip-audit` and `npm audit` run in CI on every PR; `trivy config` and
+  `checkov` scan the Terraform on every PR. (Originally planned as `tfsec` +
+  checkov, but tfsec's last release was over a year before this was written —
+  its ruleset was absorbed into Trivy, which is what's actually maintained
+  now.)
+- **CloudWatch Logs encryption:** left on AWS's default (encrypted at rest
+  with an AWS-owned key), not a customer-managed KMS key. A CMK is genuinely
+  useful for controlling key rotation/access, but costs ~$1/month per key —
+  a real dollar cost this project is specifically built to avoid, for
+  non-sensitive application logs. Flagged by Trivy (AWS-0017, low severity),
+  accepted deliberately rather than silently ignored.
 - **Frontend token storage:** the access token lives only in memory (a module
   variable, never persisted); the refresh token is stored in `localStorage`.
   The backend issues tokens as a plain JSON response rather than an httpOnly
@@ -217,9 +232,20 @@ naming convention pretending otherwise:
 
 - **Database:** distinct Neon **branches** per environment, distinct connection
   strings.
-- **Compute:** a single Lambda function with distinct **aliases** (`dev`,
-  `prod`), each pointing at its own published version, each with its own
-  environment variables (DB branch connection string, JWT secret).
+- **Compute:** **separate Lambda functions per environment** (`bookmarks-api-dev`,
+  `bookmarks-api-prod`), each with its own IAM role, log group, Function URL,
+  and environment variables (DB branch connection string, JWT secret). Lambda
+  environment variables belong to a function/version, not to an alias, so a
+  single shared function couldn't actually give dev and prod independent
+  config through aliases alone — that would need republishing the function's
+  env vars between every dev and prod deploy, which is fragile and easy to
+  get wrong. Separate functions is the standard pattern and mirrors the
+  per-environment Neon branch split above.
+- **Rollback within an environment:** each function still has a `live` alias
+  the Function URL invokes through — publishing a new version and repointing
+  `live` is the actual rollback mechanism (see
+  [Rollback strategy](#rollback-strategy)). That part of the original design
+  was right; what changed here is that dev/prod no longer share one function.
 - **Frontend:** Cloudflare Pages' built-in preview-deployments-per-branch cover
   `dev`; `main` branch deploys to the production Pages URL.
 
@@ -231,7 +257,9 @@ naming convention pretending otherwise:
 log line — `level`, `timestamp`, `request_id`, `message`, structured context
 fields), written to stdout, which Lambda automatically ships to CloudWatch Logs.
 This makes logs queryable via CloudWatch Logs Insights even without any
-alarms configured.
+alarms configured. X-Ray tracing is also enabled on both functions
+(`tracing_config { mode = "Active" }`) — genuinely free up to 100k
+traces/month, well beyond what a portfolio project's traffic would ever hit.
 
 **Documented, not implemented (would add if this were funded production):**
 
@@ -251,13 +279,13 @@ alarms configured.
 
 ## Rollback strategy
 
-- **Backend (Lambda):** every deploy publishes a new **Lambda version**, and
-  the environment's **alias** (`dev`/`prod`) is what's actually pointed at by
-  traffic. Rolling back is repointing the alias to the previous version — no
-  redeploy, no rebuild, near-instant. Terraform manages the alias resource, so
-  a rollback is a one-line `alias.function_version` change applied via the
-  same pipeline as a forward deploy (keeping rollback in the same reviewed,
-  audited path as every other change).
+- **Backend (Lambda):** every deploy publishes a new **Lambda version** on
+  that environment's function, and its **`live` alias** is what the Function
+  URL actually invokes. Rolling back is repointing `live` to the previous
+  version — no redeploy, no rebuild, near-instant. Terraform manages the
+  alias resource, so a rollback is a one-line `alias.function_version` change
+  applied via the same pipeline as a forward deploy (keeping rollback in the
+  same reviewed, audited path as every other change).
 - **Frontend (Cloudflare Pages):** every push creates an immutable deployment;
   rollback is re-promoting a previous deployment to production via the
   Cloudflare dashboard or `wrangler pages deployment` CLI — no rebuild needed
