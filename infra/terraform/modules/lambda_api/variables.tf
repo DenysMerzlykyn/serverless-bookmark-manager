@@ -20,9 +20,9 @@ variable "aws_region" {
 }
 
 variable "reserved_concurrent_executions" {
-  description = "Caps simultaneous executions. The Function URL is public (auth=NONE - see ARCHITECTURE.md's Security model), so this bounds the blast-radius cost/account-concurrency-exhaustion risk of abuse traffic rather than relying on a WAF, which isn't free."
+  description = "Caps simultaneous executions. The Function URL is public (auth=NONE - see ARCHITECTURE.md's Security model), so this bounds the blast-radius cost/account-concurrency-exhaustion risk of abuse traffic rather than relying on a WAF, which isn't free. Defaults to null (unmanaged/shared pool): a brand-new AWS account's account-wide concurrency limit starts at 10, and AWS requires at least 10 to stay unreserved - there's no room to reserve any amount until that limit is raised (AWS does this automatically over time, or it can be requested). Revisit once the account limit increases."
   type        = number
-  default     = 5
+  default     = null
 }
 
 variable "lambda_timeout" {

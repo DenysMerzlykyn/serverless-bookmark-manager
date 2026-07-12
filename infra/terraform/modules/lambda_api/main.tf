@@ -119,9 +119,18 @@ resource "aws_lambda_function_url" "this" {
   qualifier          = aws_lambda_alias.live.name
   authorization_type = "NONE" # public - see ARCHITECTURE.md's Security model
 
-  cors {
-    allow_origins = var.cors_allowed_origins
-    allow_methods = ["*"]
-    allow_headers = ["*"]
+  # AWS rejects a cors block with an empty AllowOrigins list outright - so
+  # until the frontend is deployed and cors_allowed_origins has a real
+  # value, omit the block entirely rather than send an invalid one. No
+  # frontend origin can call this cross-origin in the meantime (direct
+  # non-browser calls are unaffected), which is fine - there's no frontend
+  # to call it yet anyway.
+  dynamic "cors" {
+    for_each = length(var.cors_allowed_origins) > 0 ? [1] : []
+    content {
+      allow_origins = var.cors_allowed_origins
+      allow_methods = ["*"]
+      allow_headers = ["*"]
+    }
   }
 }

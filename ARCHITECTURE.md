@@ -171,7 +171,13 @@ shipped here is:
 1. **Lambda reserved concurrency cap** on the function — bounds the maximum
    simultaneous executions, which bounds both blast-radius cost from an abuse
    spike and protects the account's overall concurrency budget from being
-   exhausted by this one function.
+   exhausted by this one function. **Currently unset in practice**: a
+   brand-new AWS account starts with an account-wide concurrency limit of
+   only 10, and AWS requires at least 10 to remain unreserved, so there's no
+   room to reserve any amount on either function yet. AWS raises this
+   automatically as an account ages (or it can be requested); the Terraform
+   variable defaults to `null` (unmanaged) for exactly this reason and
+   should be set once the account limit increases.
 2. **Application-level rate limiting** (documented as a should-add; see below)
    on auth endpoints specifically, since credential-stuffing/brute-force is the
    most realistic abuse pattern for a public auth endpoint.
