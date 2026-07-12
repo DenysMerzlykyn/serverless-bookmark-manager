@@ -9,6 +9,7 @@ import app.models  # noqa: F401 — populates Base.metadata for autogenerate
 from alembic import context
 from app.core.config import get_settings
 from app.db.base import Base
+from app.db.session import build_engine_args
 
 config = context.config
 
@@ -37,13 +38,16 @@ def _run_sync_migrations(connection: Connection) -> None:
 
 
 async def run_migrations_online() -> None:
+    url, connect_args = build_engine_args(get_settings().database_url)
+
     configuration = config.get_section(config.config_ini_section) or {}
-    configuration["sqlalchemy.url"] = get_settings().database_url
+    configuration["sqlalchemy.url"] = url.render_as_string(hide_password=False)
 
     connectable = async_engine_from_config(
         configuration,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
+        connect_args=connect_args,
     )
 
     async with connectable.connect() as connection:
