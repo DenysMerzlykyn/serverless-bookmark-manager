@@ -1,0 +1,25 @@
+name: deploy-dev
+
+# Fires after backend-ci completes on main, not on push directly - a push
+# to main with backend changes that FAILS lint/tests should never deploy,
+# and a plain push trigger here wouldn't know backend-ci's outcome at all.
+on:
+  workflow_run:
+    workflows: ["backend-ci"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-dev
+  cancel-in-progress: false # never cancel a live deploy mid-flight
+
+jobs:
+  call-deploy:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    uses: ./.github/workflows/deploy.yml
+    with:
+      environment: dev
+      function_name: bookmarks-api-dev
+      aws_region: eu-north-1
+      aws_role_arn: arn:aws:iam::035152275518:role/github-actions-deploy

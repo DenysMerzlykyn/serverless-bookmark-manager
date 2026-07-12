@@ -1,0 +1,22 @@
+name: deploy-prod
+
+# Manual only, deliberately - no auto-deploy to prod on any push. The
+# "prod" GitHub Environment referenced by deploy.yml should have a
+# required-reviewers protection rule configured (Settings -> Environments
+# -> prod), so this workflow starting still pauses for approval before
+# the job actually runs.
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+jobs:
+  call-deploy:
+    uses: ./.github/workflows/deploy.yml
+    with:
+      environment: prod
+      function_name: bookmarks-api-prod
+      aws_region: eu-north-1
+      aws_role_arn: arn:aws:iam::035152275518:role/github-actions-deploy

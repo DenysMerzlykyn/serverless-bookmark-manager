@@ -52,10 +52,12 @@ resource "aws_iam_role_policy" "deploy" {
       Effect = "Allow"
       Action = [
         "lambda:UpdateFunctionCode",
+        "lambda:UpdateFunctionConfiguration",
         "lambda:PublishVersion",
         "lambda:UpdateAlias",
         "lambda:GetFunction",
         "lambda:GetAlias",
+        "lambda:GetFunctionUrlConfig",
       ]
       Resource = var.lambda_function_arns
     }]

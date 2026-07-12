@@ -1,0 +1,95 @@
+name: deploy
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: "dev or prod - selects the GitHub Environment and Lambda function"
+        required: true
+        type: string
+      function_name:
+        required: true
+        type: string
+      aws_region:
+        required: true
+        type: string
+      aws_role_arn:
+        required: true
+        type: string
+
+permissions:
+  id-token: write # required for OIDC -> AWS
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Built on the same OS/arch family as the Lambda Python 3.12 runtime
+      # (Amazon Linux, x86_64) - no cross-compilation flags needed. Only
+      # runtime deps, not [dev] - pytest/ruff/etc. never need to ship.
+      - name: Build deployment package
+        run: |
+          rm -rf package deployment.zip
+          pip install --target package .
+          cd package && zip -r ../deployment.zip . -x '*.dist-info/*' && cd ..
+          ls -la deployment.zip
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ inputs.aws_role_arn }}
+          aws-region: ${{ inputs.aws_region }}
+
+      - name: Update function code
+        run: |
+          aws lambda update-function-code \
+            --function-name "${{ inputs.function_name }}" \
+            --zip-file fileb://deployment.zip \
+            --no-cli-pager
+          aws lambda wait function-updated --function-name "${{ inputs.function_name }}"
+
+      - name: Point handler at the real app (one-time correction from the placeholder, idempotent after)
+        run: |
+          aws lambda update-function-configuration \
+            --function-name "${{ inputs.function_name }}" \
+            --handler app.main.handler \
+            --no-cli-pager
+          aws lambda wait function-updated --function-name "${{ inputs.function_name }}"
+
+      - name: Publish version and repoint the live alias
+        id: publish
+        run: |
+          VERSION=$(aws lambda publish-version --function-name "${{ inputs.function_name }}" --query Version --output text)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          aws lambda update-alias \
+            --function-name "${{ inputs.function_name }}" \
+            --name live \
+            --function-version "$VERSION" \
+            --no-cli-pager
+
+      - name: Smoke test the deployed version
+        run: |
+          FUNCTION_URL=$(aws lambda get-function-url-config --function-name "${{ inputs.function_name }}" --query FunctionUrl --output text)
+          echo "Checking $FUNCTION_URL health ..."
+          for i in 1 2 3 4 5; do
+            STATUS=$(curl -s -o /tmp/body.txt -w "%{http_code}" "${FUNCTION_URL}health")
+            if [ "$STATUS" = "200" ]; then
+              echo "Smoke test passed (attempt $i): $(cat /tmp/body.txt)"
+              exit 0
+            fi
+            echo "Attempt $i got status $STATUS, retrying..."
+            sleep 5
+          done
+          echo "Smoke test failed - deployed version did not become healthy" >&2
+          cat /tmp/body.txt >&2
+          exit 1
