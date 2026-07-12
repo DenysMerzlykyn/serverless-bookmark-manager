@@ -41,12 +41,6 @@ variable "log_retention_days" {
   default     = 14
 }
 
-variable "cors_allowed_origins" {
-  description = "Origins allowed to call this Function URL directly (the deployed frontend's origin)"
-  type        = list(string)
-  default     = []
-}
-
 variable "environment_variables" {
   description = "Lambda environment variables (DATABASE_URL, JWT_SECRET_KEY, etc.). Supplied by the calling env config from a gitignored *.tfvars file or CI secrets - never hardcoded here."
   type        = map(string)

@@ -37,6 +37,5 @@ module "lambda_api" {
 
   environment           = "dev"
   aws_region            = var.aws_region
-  cors_allowed_origins  = var.cors_allowed_origins
   environment_variables = var.environment_variables
 }

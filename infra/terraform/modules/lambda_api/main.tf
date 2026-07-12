@@ -103,6 +103,18 @@ resource "aws_lambda_function" "this" {
 
 # CI/CD repoints this on every deploy/rollback; the Function URL below
 # invokes through it rather than through $LATEST directly.
+#
+# ignore_changes on function_version means Terraform will never revert a
+# CI-driven rollback - but it also means Terraform's *own* changes never
+# move the alias forward. A terraform apply that edits function config
+# (env vars, memory, etc.) publishes a new version same as any other
+# change, but "live" stays frozen on whatever version it already pointed
+# to until something explicitly repoints it. Hit this directly: an env
+# var change applied cleanly but the fix wasn't actually live until
+# `aws lambda update-alias --function-version <n>` was run by hand. Once
+# the deploy workflow exists it'll own repointing on every code deploy;
+# until then, any Terraform-only apply that changes function config needs
+# that same manual step afterward.
 resource "aws_lambda_alias" "live" {
   name             = "live"
   function_name    = aws_lambda_function.this.function_name
@@ -114,23 +126,17 @@ resource "aws_lambda_alias" "live" {
 }
 
 # Accepted trade-off (see ARCHITECTURE.md's Security model): the SPA calls this directly and can't do SigV4 signing, so auth=NONE is required; access control is enforced in the FastAPI JWT layer instead
+#
+# Deliberately no `cors` block here: FastAPI's own CORSMiddleware (configured
+# via the CORS_ALLOWED_ORIGINS environment variable, see environment_variables)
+# is the single owner of CORS for this app. If both the Function URL's CORS
+# feature and the app's own middleware added Access-Control-Allow-Origin,
+# the response would carry it twice - which browsers reject outright, not
+# just warn about. The app needs its own CORS handling regardless (there's
+# no Function URL in front of it during local development), so that's the
+# one place it's configured.
 resource "aws_lambda_function_url" "this" {
   function_name      = aws_lambda_function.this.function_name
   qualifier          = aws_lambda_alias.live.name
   authorization_type = "NONE" # public - see ARCHITECTURE.md's Security model
-
-  # AWS rejects a cors block with an empty AllowOrigins list outright - so
-  # until the frontend is deployed and cors_allowed_origins has a real
-  # value, omit the block entirely rather than send an invalid one. No
-  # frontend origin can call this cross-origin in the meantime (direct
-  # non-browser calls are unaffected), which is fine - there's no frontend
-  # to call it yet anyway.
-  dynamic "cors" {
-    for_each = length(var.cors_allowed_origins) > 0 ? [1] : []
-    content {
-      allow_origins = var.cors_allowed_origins
-      allow_methods = ["*"]
-      allow_headers = ["*"]
-    }
-  }
 }

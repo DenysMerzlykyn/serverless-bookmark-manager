@@ -3,8 +3,6 @@
 
 aws_region = "eu-north-1"
 
-cors_allowed_origins = ["https://dev.example.pages.dev"]
-
 environment_variables = {
   ENVIRONMENT               = "dev"
   DATABASE_URL              = "postgresql+asyncpg://user:pass@host/dbname"
