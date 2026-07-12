@@ -1,6 +1,13 @@
 terraform {
   required_version = ">= 1.13"
 
+  cloud {
+    organization = "denys-bookmarks"
+    workspaces {
+      name = "serverless-bookmark-manager-global"
+    }
+  }
+
   required_providers {
     aws = {
       source  = "hashicorp/aws"
@@ -12,10 +19,9 @@ terraform {
     }
   }
 
-  # Local state for now - see envs/*/main.tf for the same note on migrating
-  # to Terraform Cloud. This stack holds account-wide singletons (the OIDC
-  # provider can only exist once per account), so it's applied separately
-  # from envs/dev and envs/prod.
+  # This stack holds account-wide singletons (the OIDC provider can only
+  # exist once per account), so it's applied separately from envs/dev and
+  # envs/prod - each has its own Terraform Cloud workspace/state.
 }
 
 provider "aws" {

@@ -1,6 +1,13 @@
 terraform {
   required_version = ">= 1.13"
 
+  cloud {
+    organization = "denys-bookmarks"
+    workspaces {
+      name = "serverless-bookmark-manager-dev"
+    }
+  }
+
   required_providers {
     aws = {
       source  = "hashicorp/aws"
@@ -11,10 +18,6 @@ terraform {
       version = "~> 2.0"
     }
   }
-
-  # Local state for now - migrates to a Terraform Cloud workspace once that
-  # account exists (see ARCHITECTURE.md's IaC section for why TFC over
-  # S3+DynamoDB). Tracked as a known gap, not an oversight.
 }
 
 provider "aws" {
