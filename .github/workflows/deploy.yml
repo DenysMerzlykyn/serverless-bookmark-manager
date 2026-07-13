@@ -42,7 +42,14 @@ jobs:
         run: |
           rm -rf package deployment.zip
           pip install --target package .
-          cd package && zip -r ../deployment.zip . -x '*.dist-info/*' && cd ..
+          # dist-info directories are NOT safe to strip: pydantic reads
+          # email-validator's package metadata via importlib.metadata at
+          # import time to check its version, which needs the METADATA
+          # file inside its .dist-info dir to exist. Stripping all
+          # dist-info to save space broke that lookup -
+          # "No package metadata was found for email-validator" - and
+          # crashed the function on every cold start.
+          cd package && zip -r ../deployment.zip . && cd ..
           ls -la deployment.zip
 
       - uses: aws-actions/configure-aws-credentials@v4
@@ -79,7 +86,11 @@ jobs:
 
       - name: Smoke test the deployed version
         run: |
-          FUNCTION_URL=$(aws lambda get-function-url-config --function-name "${{ inputs.function_name }}" --query FunctionUrl --output text)
+          # --qualifier is required: the Function URL was created against the
+          # "live" alias (see modules/lambda_api), not the unqualified
+          # $LATEST default, so a lookup without it 404s with
+          # ResourceNotFoundException even though the URL genuinely exists.
+          FUNCTION_URL=$(aws lambda get-function-url-config --function-name "${{ inputs.function_name }}" --qualifier live --query FunctionUrl --output text)
           echo "Checking $FUNCTION_URL health ..."
           for i in 1 2 3 4 5; do
             STATUS=$(curl -s -o /tmp/body.txt -w "%{http_code}" "${FUNCTION_URL}health")
