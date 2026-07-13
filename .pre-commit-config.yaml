@@ -1,0 +1,97 @@
+# Local git hooks - install once with `pre-commit install` (requires the
+# `pre-commit` package: `pipx install pre-commit` or `pip install pre-commit`).
+# Mirrors the checks README.md documents as the manual dev workflow:
+#   backend:  ruff check . && black --check . && mypy app tests
+#   frontend: npm run typecheck && npm run lint && npm run format:check
+#
+# eslint/prettier run as local hooks (language: system): eslint's flat
+# config + typed-linting rules need the project's real node_modules, which
+# only exists after `npm install` inside frontend/ - a mirror repo's
+# isolated environment can't reproduce that. mypy instead uses the
+# mirrors-mypy repo with additional_dependencies pinned to match
+# backend/pyproject.toml, so `pre-commit run` works in a fresh clone
+# without requiring the backend venv to be set up first.
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json
+        # tsconfig*.json is JSONC (comments allowed) via TypeScript's own
+        # parser, not strict JSON - check-json's plain json.loads() rejects it.
+        exclude: ^frontend/tsconfig.*\.json$
+      - id: check-added-large-files
+      - id: check-merge-conflict
+      - id: mixed-line-ending
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.7.4
+    hooks:
+      - id: ruff
+        name: ruff (backend)
+        files: ^backend/
+        # No --fix: matches README's documented `ruff check .` exactly.
+        # An autofixing hook silently rewrites files and still exits 0
+        # unless --exit-non-zero-on-fix is also set - check-only avoids
+        # that trap entirely and makes this hook a real gate, consistent
+        # with backend-ci running the same check-only command.
+
+  - repo: https://github.com/psf/black
+    rev: 26.3.1
+    hooks:
+      - id: black
+        name: black (backend)
+        files: ^backend/
+        # --check: black's default hook reformats in place and exits 0,
+        # which (like ruff without --exit-non-zero-on-fix) silently rewrites
+        # files instead of failing. --check matches README's `black --check .`.
+        args: [--check]
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.13.0
+    hooks:
+      - id: mypy
+        name: mypy (backend)
+        files: ^backend/(app|tests)/.*\.py$
+        args: [--config-file=backend/pyproject.toml]
+        additional_dependencies:
+          # Kept in sync with backend/pyproject.toml's [project.dependencies]
+          # and the [dev] extras actually imported by app/ or tests/ - mypy
+          # needs these installed in its own venv to resolve imports and
+          # (for pydantic) load the strict-mode mypy plugin.
+          - fastapi>=0.136,<0.140
+          - starlette>=1.3.1,<2
+          - mangum>=0.20,<0.22
+          - sqlalchemy[asyncio]>=2.0,<2.1
+          - asyncpg>=0.31,<0.32
+          - alembic>=1.16,<1.19
+          - pydantic[email]>=2.11,<3
+          - pydantic-settings>=2.8,<3
+          - argon2-cffi>=24,<26
+          - pyjwt>=2.10,<3
+          - pytest>=9.0.3,<10
+          - pytest-asyncio>=1.4,<2
+          - httpx>=0.27,<0.28
+
+  - repo: local
+    hooks:
+      - id: eslint-frontend
+        name: eslint (frontend)
+        entry: bash -c 'cd frontend && npm run lint'
+        language: system
+        files: ^frontend/.*\.(ts|tsx|js|jsx)$
+        pass_filenames: false
+
+      - id: prettier-frontend
+        name: prettier --check (frontend)
+        entry: bash -c 'cd frontend && npm run format:check'
+        language: system
+        files: ^frontend/
+        pass_filenames: false
+
+  - repo: https://github.com/antonbabenko/pre-commit-terraform
+    rev: v1.96.1
+    hooks:
+      - id: terraform_fmt
