@@ -56,6 +56,7 @@ resource "aws_iam_role_policy" "deploy" {
         "lambda:PublishVersion",
         "lambda:UpdateAlias",
         "lambda:GetFunction",
+        "lambda:GetFunctionConfiguration", # the AWS CLI's function-updated/function-active waiters poll this, not GetFunction
         "lambda:GetAlias",
         "lambda:GetFunctionUrlConfig",
       ]
