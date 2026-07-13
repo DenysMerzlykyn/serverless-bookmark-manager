@@ -45,10 +45,19 @@ locals {
   # separate Terraform states, but Lambda ARNs are fully deterministic
   # before the function exists, so the IAM policy can reference them
   # directly.
-  lambda_function_arns = [
+  #
+  # Each function needs BOTH the bare ARN (actions like UpdateFunctionCode
+  # target the unqualified function) and a ":*" wildcard ARN (actions like
+  # GetFunctionUrlConfig/GetAlias made with --qualifier live are checked by
+  # IAM against the alias-qualified ARN, e.g. "...function:name:live", which
+  # does not string-match the bare ARN at all).
+  lambda_base_arns = [
     for env in ["dev", "prod"] :
     "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:${local.project_name}-${env}"
   ]
+  lambda_function_arns = flatten([
+    for arn in local.lambda_base_arns : [arn, "${arn}:*"]
+  ])
 }
 
 module "github_oidc" {
