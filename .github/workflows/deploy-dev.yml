@@ -17,6 +17,13 @@ concurrency:
 jobs:
   call-deploy:
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    # A reusable workflow's permissions are clamped to whatever the calling
+    # job also grants - deploy.yml requesting id-token: write isn't enough
+    # on its own, this caller needs to request it too or it gets silently
+    # reduced to 'none' (which is exactly what failed on the first run).
+    permissions:
+      id-token: write
+      contents: read
     uses: ./.github/workflows/deploy.yml
     with:
       environment: dev

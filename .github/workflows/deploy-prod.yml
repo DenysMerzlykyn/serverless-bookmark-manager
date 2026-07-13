@@ -14,6 +14,11 @@ concurrency:
 
 jobs:
   call-deploy:
+    # See deploy-dev.yml for why this is needed even though deploy.yml
+    # (the reusable workflow) already requests it too.
+    permissions:
+      id-token: write
+      contents: read
     uses: ./.github/workflows/deploy.yml
     with:
       environment: prod
