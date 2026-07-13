@@ -158,6 +158,7 @@ Lambda-specific branching in application code.
 | Log/env-var encryption | AWS-managed key (default) | Customer-managed KMS key | A CMK costs ~$1/mo per key; AWS's default already encrypts at rest, just without customer-controlled rotation |
 | Code integrity | GitHub Actions OIDC as the only deploy path | AWS Signer code-signing | OIDC already means only that one pipeline can update the function; signing profiles add setup complexity disproportionate to a single-maintainer project |
 | Log retention | 14 days | 1+ year | Bounds CloudWatch Logs storage cost; a portfolio project has no compliance reason to keep logs longer |
+| Dead-letter queue | None | SQS DLQ on the Lambda function | Not a cost trade-off - DLQs only capture failures from **asynchronous** Lambda invocations (SNS/EventBridge/S3 triggers). This function is invoked synchronously via its Function URL (request/response), which has no async retry queue for a DLQ to catch anything from; the caller already gets the error directly. Flagged by checkov (CKV_AWS_116) regardless of invocation type. |
 
 ### On the missing WAF/edge protection specifically
 

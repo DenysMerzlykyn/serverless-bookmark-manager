@@ -86,7 +86,21 @@ jobs:
           compact: true
           quiet: true
           download_external_modules: false
-          # CKV_AWS_158 (CloudWatch Log Group KMS encryption) mirrors the
-          # same accepted trade-off as .trivyignore's AWS-0017 - see
-          # ARCHITECTURE.md "CloudWatch Logs encryption".
-          skip_check: CKV_AWS_158
+          # Every skipped check here is a deliberate, documented choice in
+          # ARCHITECTURE.md's "Free-tier vs. ideal production trade-offs"
+          # table, not an oversight:
+          #   CKV_AWS_158/173 - log/env-var KMS encryption (mirrors
+          #     .trivyignore's AWS-0017; a CMK costs ~$1/mo per key)
+          #   CKV_AWS_338     - log retention (14 days, bounds storage cost)
+          #   CKV_AWS_117     - no VPC (NAT Gateway costs ~$32/mo+; the
+          #     function already calls Neon over the public internet)
+          #   CKV_AWS_272     - no code-signing (OIDC is already the only
+          #     deploy path; a signing profile is disproportionate setup for
+          #     a single-maintainer project)
+          #   CKV_AWS_116     - no DLQ - not a trade-off at all, DLQs only
+          #     catch failures from *async* Lambda invocations, and this
+          #     function is invoked synchronously via its Function URL
+          #   CKV_AWS_258     - Function URL AuthType=NONE is required for
+          #     the browser SPA to call it directly; auth is enforced at
+          #     the app layer (JWT), see "Security model"
+          skip_check: CKV_AWS_158,CKV_AWS_173,CKV_AWS_338,CKV_AWS_117,CKV_AWS_272,CKV_AWS_116,CKV_AWS_258
