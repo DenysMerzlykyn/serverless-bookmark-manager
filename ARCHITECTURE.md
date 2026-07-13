@@ -323,9 +323,17 @@ Five workflows, each scoped to one concern:
    pip-audit. Runs on every PR touching `backend/`.
 2. `frontend-ci.yml` — eslint, `tsc --noEmit --strict`, vitest, npm audit.
    Runs on every PR touching `frontend/`.
-3. `terraform-ci.yml` — `terraform fmt -check`, `terraform validate`, tfsec,
-   checkov, and a `terraform plan` posted as a PR comment. **Never runs
-   `apply`** from this workflow — plan-only, human-reviewed.
+3. `terraform-ci.yml` — `terraform fmt -check`, `terraform validate` (each
+   of `global`/`envs/dev`/`envs/prod`), `trivy config`, and `checkov`.
+   **Never runs `plan` or `apply`** from this workflow. A `terraform plan`
+   posted as a PR comment was the original goal, but plan needs real AWS
+   credentials to refresh state against actual resources - the OIDC role
+   this project uses only has narrow deploy permissions (update Lambda
+   code/config, nothing else), and provisioning a second, broader
+   read-only role just for CI plan visibility was judged not worth the
+   added IAM surface for a portfolio project where every apply is already
+   run locally and reviewed by hand before confirming. Documented as a
+   "would add" item, not shipped.
 4. `k8s-kind-demo.yml` — spins up kind, applies `k8s-demo/`, smoke-tests, tears
    down. Independent of the real app's deploy path.
 5. Deploy workflows (`deploy-dev.yml` / `deploy-prod.yml`) — added later, once

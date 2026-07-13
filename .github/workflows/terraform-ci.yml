@@ -1,0 +1,92 @@
+name: terraform-ci
+
+on:
+  pull_request:
+    paths:
+      - "infra/terraform/**"
+      - ".github/workflows/terraform-ci.yml"
+  push:
+    branches: [main]
+    paths:
+      - "infra/terraform/**"
+      - ".github/workflows/terraform-ci.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: terraform-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fmt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: "1.15.8"
+          terraform_wrapper: false
+
+      - name: terraform fmt -check (every stack)
+        working-directory: infra/terraform
+        run: terraform fmt -check -recursive -diff
+
+  validate:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # global/envs/dev/envs/prod are the only independent roots (each has
+        # its own cloud{} backend + .terraform.lock.hcl); modules/* are child
+        # modules only, validated transitively through whichever root calls
+        # them.
+        stack: [global, envs/dev, envs/prod]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: "1.15.8"
+          # Every stack's backend is `cloud { organization = "denys-bookmarks" ... }`
+          # (Local execution mode) - init needs a real TFC token even just to
+          # set up the workspace, before validate can run.
+          cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
+
+      - name: terraform init
+        working-directory: infra/terraform/${{ matrix.stack }}
+        run: terraform init
+
+      - name: terraform validate
+        working-directory: infra/terraform/${{ matrix.stack }}
+        run: terraform validate
+
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # tfsec was the original plan but its last release predates this
+      # project by over a year and its ruleset was absorbed into Trivy,
+      # which is what's actually maintained - see ARCHITECTURE.md.
+      - name: trivy config scan
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: config
+          scan-ref: infra/terraform
+          severity: LOW,MEDIUM,HIGH,CRITICAL
+          exit-code: "1"
+          trivyignores: .trivyignore
+
+      - name: checkov scan
+        uses: bridgecrewio/checkov-action@v12
+        with:
+          directory: infra/terraform
+          framework: terraform
+          output_format: cli
+          compact: true
+          quiet: true
+          download_external_modules: false
+          # CKV_AWS_158 (CloudWatch Log Group KMS encryption) mirrors the
+          # same accepted trade-off as .trivyignore's AWS-0017 - see
+          # ARCHITECTURE.md "CloudWatch Logs encryption".
+          skip_check: CKV_AWS_158

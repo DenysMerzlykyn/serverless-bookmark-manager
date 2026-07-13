@@ -1,0 +1,6 @@
+# AWS-0017: CloudWatch log group uses AWS's default encryption, not a
+# customer-managed KMS key. Accepted trade-off, not an oversight - see
+# ARCHITECTURE.md "CloudWatch Logs encryption" (a CMK costs ~$1/month per
+# key, not justified for non-sensitive application logs on a project
+# specifically built to stay within the permanent free tier).
+AWS-0017
