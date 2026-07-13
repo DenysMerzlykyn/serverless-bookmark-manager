@@ -1,0 +1,29 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: db-migrate
+spec:
+  backoffLimit: 3
+  template:
+    spec:
+      restartPolicy: Never
+      initContainers:
+        # The postgres Deployment being "ready" per its own probe doesn't
+        # guarantee the Service's DNS/endpoints have propagated yet - retry
+        # here rather than relying on Job backoff to paper over a race.
+        - name: wait-for-postgres
+          image: postgres:16-alpine
+          command:
+            - sh
+            - -c
+            - until pg_isready -h postgres -U bookmarks; do echo waiting for postgres; sleep 2; done
+      containers:
+        - name: migrate
+          image: bookmarks-api:local
+          imagePullPolicy: IfNotPresent
+          command: ["alembic", "upgrade", "head"]
+          envFrom:
+            - configMapRef:
+                name: app-config
+            - secretRef:
+                name: app-secrets

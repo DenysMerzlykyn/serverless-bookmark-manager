@@ -1,0 +1,13 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+
+# base/ references bookmarks-api:local as a deliberately non-functional
+# placeholder tag; this overlay repoints it to whatever tag the CI workflow
+# actually builds and loads into the kind cluster - the standard use of a
+# kustomize overlay, not a passthrough.
+images:
+  - name: bookmarks-api
+    newTag: ci

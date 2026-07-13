@@ -1,0 +1,71 @@
+name: k8s-kind-demo
+
+# A skills demonstration, not a claim that the real app runs on Kubernetes -
+# see ARCHITECTURE.md "Kubernetes demo". Spins up a kind cluster inside the
+# runner, applies k8s-demo/'s kustomize manifests, smoke-tests the deployed
+# service, and tears the cluster down - entirely independent of the real
+# app's Lambda deploy path.
+on:
+  pull_request:
+    paths:
+      - "k8s-demo/**"
+      - "backend/**"
+      - ".github/workflows/k8s-kind-demo.yml"
+  push:
+    branches: [main]
+    paths:
+      - "k8s-demo/**"
+      - "backend/**"
+      - ".github/workflows/k8s-kind-demo.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: k8s-kind-demo-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  kind-demo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build app image
+        run: docker build -t bookmarks-api:ci backend/
+
+      # Creates the cluster and, via its own post-run step, deletes it again
+      # at the end of the job regardless of outcome - no separate teardown
+      # step needed.
+      - name: Create kind cluster
+        uses: helm/kind-action@v1.14.0
+        with:
+          cluster_name: bookmarks-demo
+          wait: 60s
+
+      - name: Load image into kind
+        run: kind load docker-image bookmarks-api:ci --name bookmarks-demo
+
+      - name: Apply manifests
+        run: kubectl apply -k k8s-demo/overlays/ci
+
+      - name: Wait for rollout
+        run: |
+          kubectl -n bookmarks-demo rollout status deployment/postgres --timeout=120s
+          kubectl -n bookmarks-demo wait --for=condition=complete job/db-migrate --timeout=120s
+          kubectl -n bookmarks-demo rollout status deployment/bookmarks-api --timeout=120s
+
+      - name: Smoke test
+        run: |
+          kubectl -n bookmarks-demo port-forward svc/bookmarks-api 8080:80 &
+          PF_PID=$!
+          sleep 3
+          bash k8s-demo/smoke-test.sh http://localhost:8080
+          kill "$PF_PID"
+
+      - name: Dump cluster state on failure
+        if: failure()
+        run: |
+          kubectl -n bookmarks-demo get pods -o wide
+          kubectl -n bookmarks-demo describe pods
+          kubectl -n bookmarks-demo logs -l app=bookmarks-api --tail=200 --prefix || true
+          kubectl -n bookmarks-demo logs -l app=postgres --tail=200 --prefix || true
+          kubectl -n bookmarks-demo logs job/db-migrate --tail=200 || true

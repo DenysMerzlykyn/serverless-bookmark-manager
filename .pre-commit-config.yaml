@@ -18,6 +18,11 @@ repos:
       - id: trailing-whitespace
       - id: end-of-file-fixer
       - id: check-yaml
+        # k8s-demo/ manifests combine Deployment+Service (or multiple
+        # Secrets) in one file with `---` separators - a normal, common
+        # Kubernetes convention, but check-yaml rejects multi-document
+        # files unless this is set.
+        args: [--allow-multiple-documents]
       - id: check-json
         # tsconfig*.json is JSONC (comments allowed) via TypeScript's own
         # parser, not strict JSON - check-json's plain json.loads() rejects it.

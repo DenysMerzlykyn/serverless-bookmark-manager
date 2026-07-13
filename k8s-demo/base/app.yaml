@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bookmarks-api
+  labels:
+    app: bookmarks-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: bookmarks-api
+  template:
+    metadata:
+      labels:
+        app: bookmarks-api
+    spec:
+      containers:
+        - name: bookmarks-api
+          image: bookmarks-api:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: app-config
+            - secretRef:
+                name: app-secrets
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bookmarks-api
+spec:
+  selector:
+    app: bookmarks-api
+  ports:
+    - port: 80
+      targetPort: 8000
