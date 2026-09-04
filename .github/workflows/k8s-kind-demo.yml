@@ -36,7 +36,7 @@ jobs:
       # at the end of the job regardless of outcome - no separate teardown
       # step needed.
       - name: Create kind cluster
-        uses: helm/kind-action@v1.14.0
+        uses: helm/kind-action@v1.15.0
         with:
           cluster_name: bookmarks-demo
           wait: 60s
